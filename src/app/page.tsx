@@ -187,15 +187,17 @@ function buildTimeline(tasks: BoardTask[], viewMode: ViewMode): TimelineUnit[] {
   } else if (viewMode === "week") {
     let cur = sowDate(addDays(minD,-7));
     const end = eowDate(addDays(maxD,14));
+    let wIdx = 1;
     while (cur <= end) {
       const eow = eowDate(cur);
       const m = cur.getMonth()+1;
       units.push({ key:toIso(cur),
-                   label:`${m}/${cur.getDate()}`,
-                   subLabel:`~${eow.getMonth()+1}/${eow.getDate()}`,
+                   label:`${wIdx}주`,
+                   subLabel:`${m}/${cur.getDate()}~${eow.getMonth()+1}/${eow.getDate()}`,
                    monthLabel:`${cur.getFullYear()}년 ${m}월`,
                    startDate:new Date(cur), endDate:eow });
       cur = addDays(cur,7);
+      wIdx++;
     }
   } else {
     let cur = somDate(minD);
@@ -574,10 +576,22 @@ export default function Home() {
 
   // Gantt
   const units    = useMemo(()=>buildTimeline(visibleTasks,viewMode),[visibleTasks,viewMode]);
-  const uw       = viewMode==="day"?40:viewMode==="week"?88:112;
+  const uw       = viewMode==="day"?36:viewMode==="week"?76:100;
   const tlW      = units.length*uw;
   const todayPx  = getTodayPx(units,viewMode,uw);
-  const leftW    = 480; // gantt left panel width
+  const leftW    = 320; // gantt left panel width (담당자 열 제거 후 축소)
+
+  // 주간 모드에서 월 그룹 헤더
+  const ganttMonthGroups = useMemo(()=>{
+    if (viewMode!=="week"||units.length===0) return [] as {label:string;count:number}[];
+    const groups:{label:string;count:number}[] = [];
+    for (const u of units) {
+      const ml = u.monthLabel;
+      const last = groups[groups.length-1];
+      if (!last||last.label!==ml) groups.push({label:ml,count:1}); else last.count++;
+    }
+    return groups;
+  },[units,viewMode]);
 
   // Selected project
   const selProject = projMap.get(selectedPid);
@@ -1029,185 +1043,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ── Gantt + project list ──────────────────────────────────────── */}
-          <div className="flex flex-1 flex-col min-h-0 overflow-hidden mx-4 mt-3 mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
-            {/* Gantt header row */}
-            <div className="shrink-0 flex border-b border-slate-200 bg-slate-50">
-              {/* Left header */}
-              <div className="shrink-0 flex text-xs font-bold text-slate-500 uppercase tracking-wide" style={{width:leftW}}>
-                <div className="flex-1 flex items-center px-4 py-3 border-r border-slate-200">프로젝트 / 업무</div>
-                <div className="w-20 flex items-center justify-center border-r border-slate-200">담당자</div>
-                <div className="w-20 flex items-center justify-center border-r border-slate-200">진행률</div>
-                <div className="w-32 flex items-center justify-center">기간</div>
-              </div>
-              {/* Right header - scrollable month+week labels */}
-              <div className="flex-1 overflow-hidden border-l border-slate-200">
-                <div className="overflow-x-auto gantt-scroll">
-                  <div className="flex" style={{width:tlW}}>
-                    {units.map(u=>(
-                      <div key={u.key} className="shrink-0 flex flex-col items-center justify-center border-r border-slate-100 py-2"
-                           style={{width:uw}}>
-                        <span className="text-[11px] font-bold text-slate-700">{u.label}</span>
-                        <span className="text-[10px] text-slate-400">{u.subLabel}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Gantt body */}
-            <div className="flex flex-1 min-h-0">
-              {/* Left panel (fixed) */}
-              <div className="shrink-0 flex flex-col overflow-y-auto thin-scroll border-r border-slate-200" style={{width:leftW}}>
-                {visibleProjects.length===0 && (
-                  <p className="p-6 text-sm text-slate-400">프로젝트가 없습니다.</p>
-                )}
-                {visibleProjects.map(p=>{
-                  const ptasks = tasksByProj.get(p.id)??[];
-                  const prog   = calcProjectProgress(tasks.filter(t=>t.projectId===p.id));
-                  const col    = collapsed.includes(p.id);
-                  const isSelected = selectedPid===p.id;
-                  return (
-                    <div key={p.id}>
-                      {/* Project row */}
-                      <div className={cx("flex items-center border-b border-slate-100 min-h-[48px] cursor-pointer group",
-                                          isSelected?"bg-brand-50":"hover:bg-slate-50")}
-                           onClick={()=>setSelectedPid(p.id)}>
-                        <div className="flex flex-1 items-center gap-2 px-3 min-w-0">
-                          <button type="button" onClick={e=>{e.stopPropagation();setCollapsed(c=>c.includes(p.id)?c.filter(x=>x!==p.id):[...c,p.id]);}}
-                            className="shrink-0 flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:border-brand-400">
-                            {col?<ChevronRight className="h-3.5 w-3.5"/>:<ChevronDown className="h-3.5 w-3.5"/>}
-                          </button>
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-bold text-slate-800">{p.name}</p>
-                            <p className="truncate text-[10px] text-slate-400">{p.advertiser}</p>
-                          </div>
-                        </div>
-                        <div className="w-20 flex items-center justify-center shrink-0">
-                          <span className="text-xs text-slate-400">{ptasks.length}개</span>
-                        </div>
-                        <div className="w-20 flex items-center justify-center shrink-0">
-                          <Chip className={progressChip(prog)}>{prog}%</Chip>
-                        </div>
-                        <div className="w-32 flex items-center justify-center shrink-0 text-[10px] text-slate-500">
-                          {p.startDate?fmtDate(p.startDate):""} ~ {p.endDate?fmtDate(p.endDate):""}
-                        </div>
-                        {/* Edit/delete on hover */}
-                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1 transition" onClick={e=>e.stopPropagation()}>
-                          {canEdit && <IconBtn icon={Edit3} label="수정" onClick={()=>openEditProject(p)} small/>}
-                          {canEdit && <IconBtn icon={Trash2} label="삭제" tone="danger" onClick={()=>void deleteProject(p)} small/>}
-                        </div>
-                      </div>
-                      {/* Task rows */}
-                      {!col && ptasks.map((t,i)=>{
-                        const ds = getDisplayStatus(t);
-                        return (
-                          <div key={t.id} className="flex items-center border-b border-slate-100 min-h-[44px] hover:bg-slate-50 group">
-                            <div className="flex flex-1 items-center gap-2 px-3 pl-8 min-w-0">
-                              <span className="shrink-0 text-[10px] font-bold text-slate-400">{i+1}</span>
-                              <span className="min-w-0 truncate text-xs font-medium text-slate-700">{t.title}</span>
-                            </div>
-                            <div className="w-20 flex items-center justify-center shrink-0">
-                              <span className="text-[11px] text-slate-500 truncate px-1">{t.assignee||"-"}</span>
-                            </div>
-                            <div className="w-20 flex items-center justify-center shrink-0">
-                              <Chip className={progressChip(t.progress)}>{t.progress}%</Chip>
-                            </div>
-                            <div className="w-32 flex items-center justify-center shrink-0 text-[10px] text-slate-500">
-                              {fmtDate(t.startDate)} ~ {fmtDate(t.endDate)}
-                            </div>
-                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1 transition" onClick={e=>e.stopPropagation()}>
-                              {canEdit && <IconBtn icon={Edit3} label="수정" onClick={()=>openEditTask(t)} small/>}
-                              {canEdit && <IconBtn icon={Trash2} label="삭제" tone="danger" onClick={()=>void deleteTask(t)} small/>}
-                            </div>
-                            {/* Status indicator */}
-                            <span className={cx("mr-1 h-2 w-2 shrink-0 rounded-full", statusMeta[ds].dot)}/>
-                          </div>
-                        );
-                      })}
-                      {!col && ptasks.length===0 && (
-                        <div className="flex min-h-[40px] items-center border-b border-slate-100 pl-12 text-xs text-slate-400">
-                          업무 없음
-                          {canEdit && (
-                            <button type="button" onClick={()=>openNewTask(p.id)} className="ml-2 text-brand-600 hover:underline text-xs">+ 업무 추가</button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Right panel (scrollable timeline) */}
-              <div className="flex-1 min-w-0 overflow-auto gantt-scroll relative" id="gantt-right">
-                <div className="relative" style={{width:tlW, minHeight:"100%"}}>
-                  {/* TODAY line */}
-                  {todayPx!==null && (
-                    <div className="pointer-events-none absolute top-0 bottom-0 z-30 border-l-2 border-dashed border-red-400" style={{left:todayPx}}>
-                      <span className="absolute -left-6 top-2 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white">TODAY</span>
-                    </div>
-                  )}
-                  {/* Grid columns */}
-                  <div className="absolute inset-0 flex pointer-events-none">
-                    {units.map(u=>(
-                      <div key={u.key} className="h-full shrink-0 border-r border-slate-100" style={{width:uw}}/>
-                    ))}
-                  </div>
-
-                  {/* Task bars */}
-                  {visibleProjects.map(p=>{
-                    const ptasks = tasksByProj.get(p.id)??[];
-                    const col    = collapsed.includes(p.id);
-                    const projRowH = 48;
-                    const taskRowH = 44;
-                    return (
-                      <div key={p.id}>
-                        {/* Project row placeholder */}
-                        <div style={{height:projRowH}} className="border-b border-slate-100"/>
-                        {/* Task rows with bars */}
-                        {!col && ptasks.map(t=>{
-                          const ds  = getDisplayStatus(t);
-                          const bar = getTaskBar(t,units,viewMode,uw);
-                          return (
-                            <div key={t.id} className="relative border-b border-slate-100" style={{height:taskRowH}}>
-                              <div className="absolute inset-0 flex">
-                                {units.map(u=>(
-                                  <div key={u.key} className="h-full shrink-0 border-r border-slate-100" style={{width:uw}}/>
-                                ))}
-                              </div>
-                              <div
-                                className="absolute top-2.5 z-10 flex h-7 items-center rounded-md px-2.5 text-[11px] font-bold text-white shadow-sm cursor-pointer hover:opacity-90 transition"
-                                style={{ left:bar.left, width:bar.width, backgroundColor:statusMeta[ds].bar }}
-                                title={`${t.title} · ${t.startDate} ~ ${t.endDate} · ${statusMeta[ds].label}`}
-                                onClick={()=>{ setSelectedPid(t.projectId); openEditTask(t); }}
-                              >
-                                <span className="truncate">{t.title}</span>
-                                {bar.width>70 && <span className="ml-auto shrink-0 pl-2 opacity-80 text-[10px]">{statusMeta[ds].label}</span>}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {!col && ptasks.length===0 && <div style={{height:taskRowH}} className="border-b border-slate-100"/>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="shrink-0 flex items-center gap-4 border-t border-slate-100 px-4 py-2">
-              {(Object.entries(statusMeta) as [DisplayStatus, typeof statusMeta[DisplayStatus]][]).map(([k,v])=>(
-                <div key={k} className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm inline-block" style={{backgroundColor:v.bar}}/>
-                  <span className="text-[11px] text-slate-500">{v.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Project detail panel ─────────────────────────────────────── */}
+          {/* ── Project detail panel (간트차트 위) ──────────────────────── */}
           {selProject && (
             <div className="shrink-0 mx-4 mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -1327,6 +1163,183 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* ── Gantt chart (단일 스크롤 컨테이너, 정렬 통합) ─────────────── */}
+          <div className="flex flex-1 flex-col min-h-0 overflow-hidden mx-4 mt-0 mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
+            {/* 단일 scroll wrapper: X·Y 동시 스크롤 → 헤더·바디 정렬 일치 */}
+            <div className="flex-1 overflow-auto gantt-scroll">
+              <div style={{minWidth: leftW + tlW + 4}}>
+
+                {/* ── 월 그룹 헤더 (주간 모드만) ── */}
+                {viewMode==="week" && ganttMonthGroups.length>0 && (
+                  <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-100">
+                    {/* 왼쪽 빈 공간 */}
+                    <div className="sticky left-0 z-40 bg-slate-100 border-r border-slate-200 shrink-0" style={{width:leftW}}/>
+                    {/* 월 라벨 */}
+                    {ganttMonthGroups.map((g,i)=>(
+                      <div key={i} className="shrink-0 flex items-center justify-center border-r border-slate-300 py-1 text-[11px] font-bold text-slate-600"
+                           style={{width: g.count*uw}}>
+                        {g.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── 컬럼 헤더 (주차/날짜) ── */}
+                <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-50"
+                     style={{top: viewMode==="week"&&ganttMonthGroups.length>0 ? 26 : 0}}>
+                  {/* 왼쪽 고정 헤더 */}
+                  <div className="sticky left-0 z-40 shrink-0 flex items-stretch bg-slate-50 border-r border-slate-200" style={{width:leftW}}>
+                    <div className="flex-1 flex items-center px-3 py-2.5 text-[11px] font-bold text-slate-500 uppercase">프로젝트 / 업무</div>
+                    <div className="w-16 shrink-0 flex items-center justify-center border-l border-slate-200 text-[11px] font-bold text-slate-500 uppercase">진행률</div>
+                    <div className="w-24 shrink-0 flex items-center justify-center border-l border-slate-200 text-[11px] font-bold text-slate-500 uppercase">기간</div>
+                  </div>
+                  {/* 타임라인 헤더 셀 */}
+                  {units.map(u=>(
+                    <div key={u.key} className="shrink-0 flex flex-col items-center justify-center border-r border-slate-100 py-1.5"
+                         style={{width:uw}}>
+                      <span className="text-[11px] font-bold text-slate-700 leading-tight">{u.label}</span>
+                      <span className="text-[9px] text-slate-400 leading-tight">{u.subLabel}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── 바디 행들 ── */}
+                {visibleProjects.length===0 && (
+                  <div className="flex" style={{minHeight:80}}>
+                    <div className="sticky left-0 shrink-0 flex items-center px-4 text-sm text-slate-400 bg-white border-r border-slate-200" style={{width:leftW}}>
+                      프로젝트가 없습니다.
+                    </div>
+                  </div>
+                )}
+
+                {visibleProjects.map(p=>{
+                  const ptasks   = tasksByProj.get(p.id)??[];
+                  const prog     = calcProjectProgress(tasks.filter(t=>t.projectId===p.id));
+                  const isCol    = collapsed.includes(p.id);
+                  const isSel    = selectedPid===p.id;
+                  const projH    = 48;
+                  const taskH    = 44;
+
+                  return (
+                    <div key={p.id}>
+                      {/* 프로젝트 행 */}
+                      <div className={cx("flex border-b border-slate-100 group cursor-pointer", isSel?"bg-brand-50":"hover:bg-slate-50")}
+                           style={{minHeight:projH}} onClick={()=>setSelectedPid(p.id)}>
+                        {/* 왼쪽 고정 셀 */}
+                        <div className={cx("sticky left-0 z-10 shrink-0 flex items-center border-r border-slate-200",
+                                           isSel?"bg-brand-50":"bg-slate-50 group-hover:bg-slate-50")} style={{width:leftW}}>
+                          <div className="flex flex-1 items-center gap-2 px-3 min-w-0">
+                            <button type="button"
+                              onClick={e=>{e.stopPropagation();setCollapsed(c=>c.includes(p.id)?c.filter(x=>x!==p.id):[...c,p.id]);}}
+                              className="shrink-0 flex h-5 w-5 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 hover:border-brand-400">
+                              {isCol?<ChevronRight className="h-3 w-3"/>:<ChevronDown className="h-3 w-3"/>}
+                            </button>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-bold text-slate-800">{p.name}</p>
+                              <p className="truncate text-[10px] text-slate-400">{p.advertiser}</p>
+                            </div>
+                          </div>
+                          <div className="w-16 shrink-0 flex items-center justify-center">
+                            <Chip className={progressChip(prog)}>{prog}%</Chip>
+                          </div>
+                          <div className="w-24 shrink-0 flex items-center justify-center text-[10px] text-slate-500">
+                            {p.startDate?fmtDate(p.startDate):""}{p.endDate?`~${fmtDate(p.endDate)}`:""}
+                          </div>
+                          {/* 호버 버튼 */}
+                          <div className="opacity-0 group-hover:opacity-100 absolute right-1 flex gap-0.5 transition" onClick={e=>e.stopPropagation()}>
+                            {canEdit&&<IconBtn icon={Edit3} label="수정" onClick={()=>openEditProject(p)} small/>}
+                            {canEdit&&<IconBtn icon={Trash2} label="삭제" tone="danger" onClick={()=>void deleteProject(p)} small/>}
+                          </div>
+                        </div>
+                        {/* 오른쪽 타임라인 셀 (프로젝트 행은 바 없음, 배경만) */}
+                        <div className="relative shrink-0 flex" style={{width:tlW}}>
+                          {units.map(u=>(
+                            <div key={u.key} className="h-full shrink-0 border-r border-slate-100" style={{width:uw}}/>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 업무 행들 */}
+                      {!isCol && ptasks.map((t,i)=>{
+                        const ds  = getDisplayStatus(t);
+                        const bar = getTaskBar(t,units,viewMode,uw);
+                        return (
+                          <div key={t.id} className="flex border-b border-slate-100 hover:bg-slate-50 group" style={{minHeight:taskH}}>
+                            {/* 왼쪽 고정 셀 */}
+                            <div className="sticky left-0 z-10 shrink-0 flex items-center bg-white border-r border-slate-200 group-hover:bg-slate-50" style={{width:leftW}}>
+                              <div className="flex flex-1 items-center gap-1.5 px-3 pl-8 min-w-0">
+                                <span className="shrink-0 text-[10px] font-bold text-slate-400 w-4">{i+1}</span>
+                                <span className="min-w-0 truncate text-xs font-medium text-slate-700">{t.title}</span>
+                              </div>
+                              <div className="w-16 shrink-0 flex items-center justify-center">
+                                <Chip className={progressChip(t.progress)}>{t.progress}%</Chip>
+                              </div>
+                              <div className="w-24 shrink-0 flex items-center justify-center text-[10px] text-slate-500">
+                                {fmtDate(t.startDate)}~{fmtDate(t.endDate)}
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 absolute right-1 flex gap-0.5 items-center transition" onClick={e=>e.stopPropagation()}>
+                                {canEdit&&<IconBtn icon={Edit3} label="수정" onClick={()=>openEditTask(t)} small/>}
+                                {canEdit&&<IconBtn icon={Trash2} label="삭제" tone="danger" onClick={()=>void deleteTask(t)} small/>}
+                                <span className={cx("h-2 w-2 rounded-full shrink-0", statusMeta[ds].dot)}/>
+                              </div>
+                            </div>
+                            {/* 오른쪽 타임라인 바 */}
+                            <div className="relative shrink-0" style={{width:tlW, minHeight:taskH}}>
+                              {/* TODAY 라인 */}
+                              {todayPx!==null && (
+                                <div className="pointer-events-none absolute top-0 bottom-0 z-20 border-l-2 border-dashed border-red-400"
+                                     style={{left:todayPx}}>
+                                  <span className="absolute -left-5 top-1 rounded bg-red-500 px-1 py-0.5 text-[8px] font-bold text-white whitespace-nowrap">TODAY</span>
+                                </div>
+                              )}
+                              {/* 격자 */}
+                              <div className="absolute inset-0 flex pointer-events-none">
+                                {units.map(u=>(
+                                  <div key={u.key} className="h-full shrink-0 border-r border-slate-100" style={{width:uw}}/>
+                                ))}
+                              </div>
+                              {/* 업무 바 */}
+                              <div
+                                className="absolute top-2 z-10 flex h-7 items-center rounded-md px-2 text-[10px] font-bold text-white shadow-sm cursor-pointer hover:opacity-90 transition"
+                                style={{left:bar.left, width:bar.width, backgroundColor:statusMeta[ds].bar}}
+                                title={`${t.title} · ${t.startDate}~${t.endDate} · ${statusMeta[ds].label}`}
+                                onClick={()=>{setSelectedPid(t.projectId);openEditTask(t);}}>
+                                <span className="truncate">{t.title}</span>
+                                {bar.width>60&&<span className="ml-auto shrink-0 pl-1.5 opacity-80">{statusMeta[ds].label}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* 업무 없음 */}
+                      {!isCol && ptasks.length===0 && (
+                        <div className="flex border-b border-slate-100" style={{minHeight:taskH}}>
+                          <div className="sticky left-0 z-10 shrink-0 flex items-center bg-white border-r border-slate-200 px-12 text-xs text-slate-400" style={{width:leftW}}>
+                            업무 없음
+                            {canEdit&&<button type="button" onClick={()=>openNewTask(p.id)} className="ml-2 text-brand-600 hover:underline">+ 추가</button>}
+                          </div>
+                          <div className="shrink-0" style={{width:tlW}}/>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 범례 */}
+            <div className="shrink-0 flex items-center gap-4 border-t border-slate-100 px-4 py-2">
+              {(Object.entries(statusMeta) as [DisplayStatus, typeof statusMeta[DisplayStatus]][]).map(([k,v])=>(
+                <div key={k} className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm inline-block" style={{backgroundColor:v.bar}}/>
+                  <span className="text-[11px] text-slate-500">{v.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           </>)}
           {/* end gantt page */}
 
