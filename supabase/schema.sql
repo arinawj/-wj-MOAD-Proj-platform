@@ -34,6 +34,7 @@ create table if not exists public.tasks (
   end_date    date not null,
   status      text not null check (status in ('todo','in_progress','done')) default 'todo',
   progress    int  not null default 0 check (progress >= 0 and progress <= 100),
+  color       text not null default '',
   memo        text not null default '',
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()

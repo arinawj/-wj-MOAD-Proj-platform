@@ -31,6 +31,7 @@ export type BoardTask = {
   endDate: string;
   status: TaskStatus;
   progress: number;
+  color: string;
   memo: string;
   createdAt: string;
   updatedAt: string;
@@ -62,6 +63,7 @@ export type TaskDraft = {
   endDate: string;
   status: TaskStatus;
   progress: number;
+  color: string;
   memo: string;
 };
 

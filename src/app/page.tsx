@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { hasSupabaseConfig, supabase } from "@/lib/supabase";
 import type {
   BoardTask,
@@ -115,20 +115,20 @@ function createDemoSeed() {
   ];
   const tasks: BoardTask[] = [
     // p1
-    { id:"t1",projectId:"p1",title:"기사섭외",department:"운영팀",assignee:"홍길동",startDate:toIso(addDays(b,-20)),endDate:toIso(addDays(b,-16)),status:"done",progress:100,memo:"완료",createdAt:toIso(addDays(b,-22)),updatedAt:toIso(b) },
-    { id:"t2",projectId:"p1",title:"디자인 작업",department:"디자인팀",assignee:"김디자인",startDate:toIso(addDays(b,-18)),endDate:toIso(addDays(b,5)),status:"in_progress",progress:60,memo:"시안 수정 중",createdAt:toIso(addDays(b,-22)),updatedAt:toIso(b) },
-    { id:"t3",projectId:"p1",title:"랩핑 테스트",department:"시공팀",assignee:"이테스트",startDate:toIso(addDays(b,6)),endDate:toIso(addDays(b,12)),status:"todo",progress:0,memo:"",createdAt:toIso(addDays(b,-22)),updatedAt:toIso(b) },
-    { id:"t4",projectId:"p1",title:"랩핑 시공",department:"시공팀",assignee:"박시공",startDate:toIso(addDays(b,13)),endDate:toIso(addDays(b,25)),status:"todo",progress:0,memo:"",createdAt:toIso(addDays(b,-22)),updatedAt:toIso(b) },
+    { id:"t1",projectId:"p1",title:"기사섭외",department:"운영팀",assignee:"홍길동",startDate:toIso(addDays(b,-20)),endDate:toIso(addDays(b,-16)),status:"done",progress:100,color:"",memo:"완료",createdAt:toIso(addDays(b,-22)),updatedAt:toIso(b) },
+    { id:"t2",projectId:"p1",title:"디자인 작업",department:"디자인팀",assignee:"김디자인",startDate:toIso(addDays(b,-18)),endDate:toIso(addDays(b,5)),status:"in_progress",progress:60,color:"",memo:"시안 수정 중",createdAt:toIso(addDays(b,-22)),updatedAt:toIso(b) },
+    { id:"t3",projectId:"p1",title:"랩핑 테스트",department:"시공팀",assignee:"이테스트",startDate:toIso(addDays(b,6)),endDate:toIso(addDays(b,12)),status:"todo",progress:0,color:"",memo:"",createdAt:toIso(addDays(b,-22)),updatedAt:toIso(b) },
+    { id:"t4",projectId:"p1",title:"랩핑 시공",department:"시공팀",assignee:"박시공",startDate:toIso(addDays(b,13)),endDate:toIso(addDays(b,25)),status:"todo",progress:0,color:"",memo:"",createdAt:toIso(addDays(b,-22)),updatedAt:toIso(b) },
     // p2
-    { id:"t5",projectId:"p2",title:"기사섭외",department:"운영팀",assignee:"홍길동",startDate:toIso(addDays(b,-60)),endDate:toIso(addDays(b,-56)),status:"done",progress:100,memo:"",createdAt:toIso(addDays(b,-62)),updatedAt:toIso(b) },
-    { id:"t6",projectId:"p2",title:"디자인 작업",department:"디자인팀",assignee:"김디자인",startDate:toIso(addDays(b,-55)),endDate:toIso(addDays(b,-41)),status:"done",progress:100,memo:"",createdAt:toIso(addDays(b,-62)),updatedAt:toIso(b) },
-    { id:"t7",projectId:"p2",title:"랩핑 테스트",department:"시공팀",assignee:"이테스트",startDate:toIso(addDays(b,-40)),endDate:toIso(addDays(b,-31)),status:"in_progress",progress:80,memo:"",createdAt:toIso(addDays(b,-62)),updatedAt:toIso(b) },
-    { id:"t8",projectId:"p2",title:"랩핑 시공",department:"시공팀",assignee:"박시공",startDate:toIso(addDays(b,1)),endDate:toIso(addDays(b,20)),status:"in_progress",progress:40,memo:"",createdAt:toIso(addDays(b,-62)),updatedAt:toIso(b) },
+    { id:"t5",projectId:"p2",title:"기사섭외",department:"운영팀",assignee:"홍길동",startDate:toIso(addDays(b,-60)),endDate:toIso(addDays(b,-56)),status:"done",progress:100,color:"",memo:"",createdAt:toIso(addDays(b,-62)),updatedAt:toIso(b) },
+    { id:"t6",projectId:"p2",title:"디자인 작업",department:"디자인팀",assignee:"김디자인",startDate:toIso(addDays(b,-55)),endDate:toIso(addDays(b,-41)),status:"done",progress:100,color:"",memo:"",createdAt:toIso(addDays(b,-62)),updatedAt:toIso(b) },
+    { id:"t7",projectId:"p2",title:"랩핑 테스트",department:"시공팀",assignee:"이테스트",startDate:toIso(addDays(b,-40)),endDate:toIso(addDays(b,-31)),status:"in_progress",progress:80,color:"",memo:"",createdAt:toIso(addDays(b,-62)),updatedAt:toIso(b) },
+    { id:"t8",projectId:"p2",title:"랩핑 시공",department:"시공팀",assignee:"박시공",startDate:toIso(addDays(b,1)),endDate:toIso(addDays(b,20)),status:"in_progress",progress:40,color:"",memo:"",createdAt:toIso(addDays(b,-62)),updatedAt:toIso(b) },
     // p3
-    { id:"t9",projectId:"p3",title:"기사섭외",department:"운영팀",assignee:"홍길동",startDate:toIso(addDays(b,15)),endDate:toIso(addDays(b,20)),status:"todo",progress:50,memo:"",createdAt:toIso(addDays(b,-3)),updatedAt:toIso(b) },
-    { id:"t10",projectId:"p3",title:"디자인 작업",department:"디자인팀",assignee:"김디자인",startDate:toIso(addDays(b,21)),endDate:toIso(addDays(b,45)),status:"todo",progress:0,memo:"",createdAt:toIso(addDays(b,-3)),updatedAt:toIso(b) },
-    { id:"t11",projectId:"p3",title:"랩핑 테스트",department:"시공팀",assignee:"이테스트",startDate:toIso(addDays(b,46)),endDate:toIso(addDays(b,52)),status:"todo",progress:0,memo:"",createdAt:toIso(addDays(b,-3)),updatedAt:toIso(b) },
-    { id:"t12",projectId:"p3",title:"랩핑 시공",department:"시공팀",assignee:"박시공",startDate:toIso(addDays(b,53)),endDate:toIso(addDays(b,76)),status:"todo",progress:0,memo:"",createdAt:toIso(addDays(b,-3)),updatedAt:toIso(b) },
+    { id:"t9",projectId:"p3",title:"기사섭외",department:"운영팀",assignee:"홍길동",startDate:toIso(addDays(b,15)),endDate:toIso(addDays(b,20)),status:"todo",progress:50,color:"",memo:"",createdAt:toIso(addDays(b,-3)),updatedAt:toIso(b) },
+    { id:"t10",projectId:"p3",title:"디자인 작업",department:"디자인팀",assignee:"김디자인",startDate:toIso(addDays(b,21)),endDate:toIso(addDays(b,45)),status:"todo",progress:0,color:"",memo:"",createdAt:toIso(addDays(b,-3)),updatedAt:toIso(b) },
+    { id:"t11",projectId:"p3",title:"랩핑 테스트",department:"시공팀",assignee:"이테스트",startDate:toIso(addDays(b,46)),endDate:toIso(addDays(b,52)),status:"todo",progress:0,color:"",memo:"",createdAt:toIso(addDays(b,-3)),updatedAt:toIso(b) },
+    { id:"t12",projectId:"p3",title:"랩핑 시공",department:"시공팀",assignee:"박시공",startDate:toIso(addDays(b,53)),endDate:toIso(addDays(b,76)),status:"todo",progress:0,color:"",memo:"",createdAt:toIso(addDays(b,-3)),updatedAt:toIso(b) },
   ];
   return { projects, tasks };
 }
@@ -148,7 +148,7 @@ function blankProject(): ProjectDraft {
 }
 function blankTask(projectId: string): TaskDraft {
   const today = parse(todayIso());
-  return { projectId, title:"", department:"", assignee:"", startDate:toIso(today), endDate:toIso(addDays(today,7)), status:"todo", progress:0, memo:"" };
+  return { projectId, title:"", department:"", assignee:"", startDate:toIso(today), endDate:toIso(addDays(today,7)), status:"todo", progress:0, color:"", memo:"" };
 }
 
 // ─── DB row converters ────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ function rowToProject(r: any): Project {
 function rowToTask(r: any): BoardTask {
   return { id:r.id, projectId:r.project_id, title:r.title, department:r.department??"", assignee:r.assignee??"",
            startDate:r.start_date, endDate:r.end_date, status:r.status as TaskStatus,
-           progress:r.progress??0, memo:r.memo??"", createdAt:r.created_at, updatedAt:r.updated_at };
+           progress:r.progress??0, color:r.color??"", memo:r.memo??"", createdAt:r.created_at, updatedAt:r.updated_at };
 }
 
 // ─── Timeline builder ─────────────────────────────────────────────────────────
@@ -187,17 +187,18 @@ function buildTimeline(tasks: BoardTask[], viewMode: ViewMode): TimelineUnit[] {
   } else if (viewMode === "week") {
     let cur = sowDate(addDays(minD,-7));
     const end = eowDate(addDays(maxD,14));
-    let wIdx = 1;
+    let lastMon = -1; let wIdx = 0;
     while (cur <= end) {
       const eow = eowDate(cur);
-      const m = cur.getMonth()+1;
+      const mon = cur.getMonth();
+      if (mon !== lastMon) { wIdx = 1; lastMon = mon; } else { wIdx++; }
+      const m = mon+1;
       units.push({ key:toIso(cur),
                    label:`${wIdx}주`,
                    subLabel:`${m}/${cur.getDate()}~${eow.getMonth()+1}/${eow.getDate()}`,
                    monthLabel:`${cur.getFullYear()}년 ${m}월`,
                    startDate:new Date(cur), endDate:eow });
       cur = addDays(cur,7);
-      wIdx++;
     }
   } else {
     let cur = somDate(minD);
@@ -327,6 +328,7 @@ export default function Home() {
   const [activePage,   setActivePage]   = useState<NavPage>("gantt");
   const [detailTab,    setDetailTab]    = useState<"info"|"history"|"memo">("info");
   const [calMonth,     setCalMonth]     = useState<Date>(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1); });
+  const ganttHeadRef = useRef<HTMLDivElement>(null);
 
   const canEdit       = role==="master"||role==="editor";
   const canManage     = role==="master";
@@ -465,17 +467,17 @@ export default function Home() {
   }
   function openEditTask(t: BoardTask) {
     setTaskDraft({ id:t.id,projectId:t.projectId,title:t.title,department:t.department,assignee:t.assignee,
-                   startDate:t.startDate,endDate:t.endDate,status:t.status,progress:t.progress,memo:t.memo });
+                   startDate:t.startDate,endDate:t.endDate,status:t.status,progress:t.progress,color:t.color,memo:t.memo });
     setFormError(""); setDialog("task");
   }
 
   async function saveTask(e: FormEvent) {
     e.preventDefault();
-    const { title, department, assignee, startDate, endDate, status, progress, memo, projectId } = taskDraft;
+    const { title, department, assignee, startDate, endDate, status, progress, color, memo, projectId } = taskDraft;
     if (!projectId||!title.trim()||!startDate||!endDate) { setFormError("프로젝트, 업무명, 시작일, 종료일은 필수입니다."); return; }
     if (parse(startDate)>parse(endDate)) { setFormError("종료일은 시작일 이후여야 합니다."); return; }
     const payload = { project_id:projectId, title:title.trim(), department:department.trim(), assignee:assignee.trim(),
-                      start_date:startDate, end_date:endDate, status, progress, memo:memo.trim() };
+                      start_date:startDate, end_date:endDate, status, progress, color, memo:memo.trim() };
     if (supabase) {
       setLoading(true);
       if (taskDraft.id) {
@@ -493,9 +495,9 @@ export default function Home() {
       const now = new Date().toISOString();
       if (taskDraft.id) {
         setTasks(cur=>cur.map(t=>t.id===taskDraft.id
-          ?{...t,...taskDraft,projectId,title:title.trim(),department:department.trim(),assignee:assignee.trim(),memo:memo.trim(),updatedAt:now}:t));
+          ?{...t,...taskDraft,projectId,title:title.trim(),department:department.trim(),assignee:assignee.trim(),color,memo:memo.trim(),updatedAt:now}:t));
       } else {
-        setTasks(cur=>[...cur,{id:makeId(),projectId,title:title.trim(),department:department.trim(),assignee:assignee.trim(),startDate,endDate,status,progress,memo:memo.trim(),createdAt:now,updatedAt:now}]);
+        setTasks(cur=>[...cur,{id:makeId(),projectId,title:title.trim(),department:department.trim(),assignee:assignee.trim(),startDate,endDate,status,progress,color,memo:memo.trim(),createdAt:now,updatedAt:now}]);
       }
     }
     setDialog(null);
@@ -839,7 +841,7 @@ export default function Home() {
         </header>
 
         {/* Content area */}
-        <main className="flex flex-1 flex-col overflow-hidden">
+        <main className={cx("flex flex-1 flex-col", activePage==="gantt"?"overflow-y-auto thin-scroll":"overflow-hidden")}>
           {/* Notices */}
           {(notice||authError) && (
             <div className={cx("mx-4 mt-3 rounded-xl px-4 py-2.5 text-sm", notice?"bg-blue-50 text-blue-700 border border-blue-200":"bg-red-50 text-red-700 border border-red-200")}>
@@ -1164,45 +1166,52 @@ export default function Home() {
             </div>
           )}
 
-          {/* ── Gantt chart (단일 스크롤 컨테이너, 정렬 통합) ─────────────── */}
-          <div className="flex flex-1 flex-col min-h-0 overflow-hidden mx-4 mt-0 mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
-            {/* 단일 scroll wrapper: X·Y 동시 스크롤 → 헤더·바디 정렬 일치 */}
-            <div className="flex-1 overflow-auto gantt-scroll">
-              <div style={{minWidth: leftW + tlW + 4}}>
+          {/* ── Gantt chart (sticky 헤더 + JS X-sync + Y 자동 확장) ──────── */}
+          <div className="mx-4 mt-0 mb-4 rounded-xl border border-slate-200 bg-white shadow-card">
 
-                {/* ── 월 그룹 헤더 (주간 모드만) ── */}
-                {viewMode==="week" && ganttMonthGroups.length>0 && (
-                  <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-100">
-                    {/* 왼쪽 빈 공간 */}
-                    <div className="sticky left-0 z-40 bg-slate-100 border-r border-slate-200 shrink-0" style={{width:leftW}}/>
-                    {/* 월 라벨 */}
-                    {ganttMonthGroups.map((g,i)=>(
-                      <div key={i} className="shrink-0 flex items-center justify-center border-r border-slate-300 py-1 text-[11px] font-bold text-slate-600"
-                           style={{width: g.count*uw}}>
-                        {g.label}
+            {/* ── sticky 헤더 (main Y스크롤에 고정) ── */}
+            <div className="sticky top-0 z-30 rounded-t-xl border-b border-slate-200">
+              {/* 월 그룹 행 (주간 모드만) */}
+              {viewMode==="week" && ganttMonthGroups.length>0 && (
+                <div className="flex bg-slate-100 border-b border-slate-200">
+                  <div className="shrink-0 bg-slate-100 border-r border-slate-200" style={{width:leftW, height:26}}/>
+                  <div className="flex-1 overflow-hidden" ref={ganttHeadRef}>
+                    <div className="flex" style={{minWidth:tlW}}>
+                      {ganttMonthGroups.map((g,i)=>(
+                        <div key={i} className="shrink-0 flex items-center justify-center border-r border-slate-300 text-[11px] font-bold text-slate-600"
+                             style={{width:g.count*uw, height:26}}>
+                          {g.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* 열 헤더 행 */}
+              <div className="flex bg-slate-50">
+                <div className="shrink-0 flex items-stretch bg-slate-50 border-r border-slate-200" style={{width:leftW}}>
+                  <div className="flex-1 flex items-center px-3 text-[11px] font-bold text-slate-500 uppercase">프로젝트 / 업무</div>
+                  <div className="w-16 shrink-0 flex items-center justify-center border-l border-slate-200 text-[11px] font-bold text-slate-500">진행률</div>
+                  <div className="w-24 shrink-0 flex items-center justify-center border-l border-slate-200 text-[11px] font-bold text-slate-500">기간</div>
+                </div>
+                <div className="flex-1 overflow-hidden"
+                     ref={viewMode==="week"?undefined:ganttHeadRef}>
+                  <div className="flex" style={{minWidth:tlW}}>
+                    {units.map(u=>(
+                      <div key={u.key} className="shrink-0 flex flex-col items-center justify-center border-r border-slate-100 py-1.5" style={{width:uw}}>
+                        <span className="text-[11px] font-bold text-slate-700">{u.label}</span>
+                        <span className="text-[9px] text-slate-400">{u.subLabel}</span>
                       </div>
                     ))}
                   </div>
-                )}
-
-                {/* ── 컬럼 헤더 (주차/날짜) ── */}
-                <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-slate-50"
-                     style={{top: viewMode==="week"&&ganttMonthGroups.length>0 ? 26 : 0}}>
-                  {/* 왼쪽 고정 헤더 */}
-                  <div className="sticky left-0 z-40 shrink-0 flex items-stretch bg-slate-50 border-r border-slate-200" style={{width:leftW}}>
-                    <div className="flex-1 flex items-center px-3 py-2.5 text-[11px] font-bold text-slate-500 uppercase">프로젝트 / 업무</div>
-                    <div className="w-16 shrink-0 flex items-center justify-center border-l border-slate-200 text-[11px] font-bold text-slate-500 uppercase">진행률</div>
-                    <div className="w-24 shrink-0 flex items-center justify-center border-l border-slate-200 text-[11px] font-bold text-slate-500 uppercase">기간</div>
-                  </div>
-                  {/* 타임라인 헤더 셀 */}
-                  {units.map(u=>(
-                    <div key={u.key} className="shrink-0 flex flex-col items-center justify-center border-r border-slate-100 py-1.5"
-                         style={{width:uw}}>
-                      <span className="text-[11px] font-bold text-slate-700 leading-tight">{u.label}</span>
-                      <span className="text-[9px] text-slate-400 leading-tight">{u.subLabel}</span>
-                    </div>
-                  ))}
                 </div>
+              </div>
+            </div>
+
+            {/* ── 바디: X-스크롤, Y 자동 확장 ── */}
+            <div className="overflow-x-auto gantt-scroll"
+                 onScroll={e=>{if(ganttHeadRef.current)ganttHeadRef.current.scrollLeft=e.currentTarget.scrollLeft;}}>
+              <div style={{minWidth: leftW + tlW + 4}}>
 
                 {/* ── 바디 행들 ── */}
                 {visibleProjects.length===0 && (
@@ -1302,7 +1311,7 @@ export default function Home() {
                               {/* 업무 바 */}
                               <div
                                 className="absolute top-2 z-10 flex h-7 items-center rounded-md px-2 text-[10px] font-bold text-white shadow-sm cursor-pointer hover:opacity-90 transition"
-                                style={{left:bar.left, width:bar.width, backgroundColor:statusMeta[ds].bar}}
+                                style={{left:bar.left, width:bar.width, backgroundColor:t.color||statusMeta[ds].bar}}
                                 title={`${t.title} · ${t.startDate}~${t.endDate} · ${statusMeta[ds].label}`}
                                 onClick={()=>{setSelectedPid(t.projectId);openEditTask(t);}}>
                                 <span className="truncate">{t.title}</span>
@@ -1797,6 +1806,53 @@ export default function Home() {
                   <input type="range" min={0} max={100} value={taskDraft.progress} onChange={e=>setTaskDraft(c=>({...c,progress:Number(e.target.value)}))}
                     className="w-full accent-brand-600"/>
                   <div className="flex justify-between text-[10px] text-slate-400 mt-0.5"><span>0%</span><span>50%</span><span>100%</span></div>
+                </div>
+
+                {/* 색상 선택 */}
+                <div className="col-span-2">
+                  <Label>간트 바 색상</Label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* 프리셋 스와치 */}
+                    {[
+                      {c:"",        label:"자동"},
+                      {c:"#3b82f6", label:"파랑"},
+                      {c:"#10b981", label:"초록"},
+                      {c:"#f59e0b", label:"주황"},
+                      {c:"#ef4444", label:"빨강"},
+                      {c:"#8b5cf6", label:"보라"},
+                      {c:"#6b7280", label:"회색"},
+                      {c:"#0ea5e9", label:"하늘"},
+                      {c:"#f43f5e", label:"분홍"},
+                    ].map(sw=>(
+                      <button key={sw.c} type="button"
+                        onClick={()=>setTaskDraft(c=>({...c,color:sw.c}))}
+                        title={sw.label}
+                        className={cx("flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition",
+                          taskDraft.color===sw.c
+                            ? "border-brand-700 ring-2 ring-brand-400"
+                            : "border-slate-200 hover:border-slate-400")}>
+                        {sw.c
+                          ? <span className="h-4 w-4 rounded-full border border-white/30 shadow-sm" style={{backgroundColor:sw.c}}/>
+                          : <span className="h-4 w-4 rounded-full border border-dashed border-slate-400 bg-gradient-to-br from-slate-200 to-slate-300"/>
+                        }
+                        <span className="text-slate-600">{sw.label}</span>
+                      </button>
+                    ))}
+                    {/* 직접 선택 */}
+                    <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1">
+                      <input type="color"
+                        value={taskDraft.color||"#3b82f6"}
+                        onChange={e=>setTaskDraft(c=>({...c,color:e.target.value}))}
+                        className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"/>
+                      <span className="text-xs text-slate-500">직접 선택</span>
+                    </div>
+                  </div>
+                  {taskDraft.color && (
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      현재: <span className="font-mono">{taskDraft.color}</span>
+                      <button type="button" onClick={()=>setTaskDraft(c=>({...c,color:""}))} className="ml-2 text-brand-600 hover:underline">자동으로 초기화</button>
+                    </p>
+                  )}
                 </div>
               </div>
               <div><Label>메모</Label>
