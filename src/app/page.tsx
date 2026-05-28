@@ -585,6 +585,9 @@ export default function Home() {
   // Notifications count (delayed + due soon)
   const alertCount = dashboard.delayed + dashboard.dueSoon;
 
+  // Calendar state
+  const [calMonth, setCalMonth] = useState<Date>(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1); });
+
   // ─── Render: loading ──────────────────────────────────────────────────────
   if (!ready) {
     return (
@@ -814,6 +817,125 @@ export default function Home() {
             </div>
           )}
 
+          {/* ════════════════════════════════════════════════════════════════
+              대시보드 페이지
+          ════════════════════════════════════════════════════════════════ */}
+          {activePage==="dashboard" && (
+            <div className="flex-1 overflow-auto thin-scroll p-4 space-y-4">
+              {/* 5 big metric cards */}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+                {[
+                  { icon:Calendar,    label:"오늘 마감",        value:dashboard.todayDue,     unit:"건", color:"text-blue-600",   bg:"bg-blue-50",    border:"border-blue-200"    },
+                  { icon:AlertCircle, label:"지연 업무",         value:dashboard.delayed,      unit:"건", color:"text-red-600",    bg:"bg-red-50",     border:"border-red-200"     },
+                  { icon:AlertCircle, label:"3일 이내 마감",    value:dashboard.dueSoon,      unit:"건", color:"text-amber-600",  bg:"bg-amber-50",   border:"border-amber-200"   },
+                  { icon:Truck,       label:"이번주 시공 예정", value:dashboard.construction, unit:"건", color:"text-brand-600",  bg:"bg-brand-50",   border:"border-brand-200"   },
+                  { icon:BarChart3,   label:"전체 진행률",      value:dashboard.progress,     unit:"%",  color:"text-emerald-600",bg:"bg-emerald-50", border:"border-emerald-200" },
+                ].map(c=>(
+                  <div key={c.label} className={cx("rounded-xl border bg-white p-5 shadow-card", c.border)}>
+                    <div className={cx("mb-3 flex h-11 w-11 items-center justify-center rounded-xl", c.bg)}>
+                      <c.icon className={cx("h-6 w-6", c.color)}/>
+                    </div>
+                    <p className="text-xs font-semibold text-slate-500">{c.label}</p>
+                    <p className="mt-1 text-3xl font-bold text-slate-900">{c.value}<span className="ml-1 text-base font-semibold text-slate-500">{c.unit}</span></p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                {/* Project status table */}
+                <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">프로젝트 현황</h3>
+                    {canEdit && <Btn small icon={Plus} tone="primary" onClick={openNewProject}>새 프로젝트</Btn>}
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {projects.length===0 && <p className="p-4 text-sm text-slate-400">프로젝트가 없습니다.</p>}
+                    {projects.map(p=>{
+                      const pt=tasks.filter(t=>t.projectId===p.id);
+                      const prog=calcProjectProgress(pt);
+                      const doneCnt=pt.filter(t=>t.status==="done").length;
+                      return (
+                        <div key={p.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer"
+                             onClick={()=>{setSelectedPid(p.id);setActivePage("gantt");}}>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-800">{p.name}</p>
+                            <p className="text-xs text-slate-400">{p.advertiser} · {pt.length}개 업무 · 완료 {doneCnt}개</p>
+                            <div className="mt-1.5 h-1.5 w-full rounded-full bg-slate-200">
+                              <div className="h-1.5 rounded-full bg-brand-600 transition-all" style={{width:`${prog}%`}}/>
+                            </div>
+                          </div>
+                          <Chip className={progressChip(prog)}>{prog}%</Chip>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Attention required */}
+                <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">주의 필요 업무</h3>
+                  </div>
+                  <div className="divide-y divide-slate-100 max-h-[340px] overflow-auto thin-scroll">
+                    {tasks.filter(t=>getDisplayStatus(t)==="delayed"||getDisplayStatus(t)==="warning").length===0 && (
+                      <p className="p-4 text-sm text-slate-400">주의가 필요한 업무가 없습니다.</p>
+                    )}
+                    {tasks.filter(t=>getDisplayStatus(t)==="delayed"||getDisplayStatus(t)==="warning")
+                      .sort((a,b)=>a.endDate.localeCompare(b.endDate))
+                      .map(t=>{
+                        const ds=getDisplayStatus(t);
+                        const p=projMap.get(t.projectId);
+                        return (
+                          <div key={t.id} className="flex items-center gap-3 px-4 py-3">
+                            <span className={cx("h-2 w-2 shrink-0 rounded-full", statusMeta[ds].dot)}/>
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-800">{t.title}</p>
+                              <p className="text-xs text-slate-400">{p?.name} · {t.assignee||"미배정"}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <Chip className={statusMeta[ds].chip}>{statusMeta[ds].label}</Chip>
+                              <p className="mt-0.5 text-[10px] text-slate-400">{t.endDate}</p>
+                            </div>
+                          </div>
+                        );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Department workload */}
+              <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-800">부서별 업무 현황</h3>
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {[...new Set(tasks.map(t=>t.department).filter(Boolean))].map(dept=>{
+                    const dTasks=tasks.filter(t=>t.department===dept);
+                    const dDone=dTasks.filter(t=>t.status==="done").length;
+                    const dProg=Math.round(dTasks.reduce((s,t)=>s+t.progress,0)/(dTasks.length||1));
+                    return (
+                      <div key={dept} className="rounded-lg border border-slate-200 p-3">
+                        <p className="text-xs font-bold text-slate-700">{dept}</p>
+                        <p className="mt-1 text-lg font-bold text-slate-900">{dTasks.length}<span className="text-xs font-normal text-slate-400">개</span></p>
+                        <div className="mt-1.5 h-1.5 w-full rounded-full bg-slate-200">
+                          <div className="h-1.5 rounded-full bg-brand-500" style={{width:`${dProg}%`}}/>
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-400">완료 {dDone}개 · {dProg}%</p>
+                      </div>
+                    );
+                  })}
+                  {[...new Set(tasks.map(t=>t.department).filter(Boolean))].length===0 && (
+                    <p className="col-span-4 text-sm text-slate-400 p-2">데이터가 없습니다.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
+              간트차트 페이지
+          ════════════════════════════════════════════════════════════════ */}
+          {activePage==="gantt" && (<>
           {/* ── Dashboard cards ──────────────────────────────────────────── */}
           <div className="shrink-0 grid grid-cols-2 gap-3 px-4 pt-4 sm:grid-cols-3 xl:grid-cols-5">
             {[
@@ -1186,6 +1308,387 @@ export default function Home() {
                 {detailTab==="history" && (
                   <p className="text-sm text-slate-400">업무 히스토리 기능은 2차 업데이트에서 제공됩니다.</p>
                 )}
+              </div>
+            </div>
+          )}
+          </>)}
+          {/* end gantt page */}
+
+          {/* ════════════════════════════════════════════════════════════════
+              업무보드 (칸반) 페이지
+          ════════════════════════════════════════════════════════════════ */}
+          {activePage==="board" && (
+            <div className="flex flex-1 flex-col overflow-hidden p-4">
+              <div className="mb-3 flex items-center gap-2">
+                {canEdit && <Btn small icon={Plus} tone="primary" onClick={()=>openNewTask()}>업무 추가</Btn>}
+                <span className="text-xs text-slate-400">총 {tasks.length}개 업무</span>
+              </div>
+              <div className="flex flex-1 gap-4 overflow-x-auto thin-scroll">
+                {([
+                  { status:"todo"        as const, label:"대기",   border:"border-slate-300",  head:"bg-slate-100 text-slate-700" },
+                  { status:"in_progress" as const, label:"진행중", border:"border-blue-300",   head:"bg-blue-50 text-blue-700"   },
+                  { status:"done"        as const, label:"완료",   border:"border-emerald-300",head:"bg-emerald-50 text-emerald-700" },
+                ]).map(col=>{
+                  const colTasks=tasks.filter(t=>t.status===col.status);
+                  return (
+                    <div key={col.status} className={cx("flex w-72 shrink-0 flex-col rounded-xl border-2 bg-white shadow-card", col.border)}>
+                      <div className={cx("flex items-center justify-between rounded-t-xl px-3 py-2.5", col.head)}>
+                        <span className="text-sm font-bold">{col.label}</span>
+                        <span className="rounded-full bg-white/60 px-2 py-0.5 text-xs font-bold">{colTasks.length}</span>
+                      </div>
+                      <div className="flex flex-1 flex-col gap-2 overflow-y-auto thin-scroll p-2">
+                        {colTasks.map(t=>{
+                          const p=projMap.get(t.projectId);
+                          const ds=getDisplayStatus(t);
+                          return (
+                            <div key={t.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-card hover:shadow-soft transition cursor-pointer"
+                                 onClick={()=>canEdit&&openEditTask(t)}>
+                              <div className="mb-2 flex items-start justify-between gap-2">
+                                <p className="text-sm font-semibold text-slate-800 leading-snug">{t.title}</p>
+                                <Chip className={statusMeta[ds].chip}>{statusMeta[ds].label}</Chip>
+                              </div>
+                              <p className="text-xs text-slate-400 truncate">{p?.name||"-"}</p>
+                              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                                <span>{t.department||"-"} · {t.assignee||"미배정"}</span>
+                                <span className={daysLeft(t.endDate)<0?"text-red-500":daysLeft(t.endDate)<=3?"text-amber-500":""}>
+                                  {t.status==="done"?"완료":`D-${daysLeft(t.endDate)}`}
+                                </span>
+                              </div>
+                              <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200">
+                                <div className="h-1.5 rounded-full bg-brand-500 transition-all" style={{width:`${t.progress}%`}}/>
+                              </div>
+                              <p className="mt-0.5 text-right text-[10px] text-slate-400">{t.progress}%</p>
+                            </div>
+                          );
+                        })}
+                        {colTasks.length===0 && (
+                          <p className="mt-2 text-center text-xs text-slate-300">업무 없음</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
+              캘린더 페이지
+          ════════════════════════════════════════════════════════════════ */}
+          {activePage==="calendar" && (()=>{
+            const year=calMonth.getFullYear(), month=calMonth.getMonth();
+            const firstDay=new Date(year,month,1).getDay();
+            const daysInMonth=new Date(year,month+1,0).getDate();
+            const offset=(firstDay+6)%7; // Mon=0
+            const cells: (number|null)[] = [...Array(offset).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)];
+            while(cells.length%7!==0) cells.push(null);
+
+            const tasksByDay = new Map<string,BoardTask[]>();
+            tasks.forEach(t=>{
+              const key=t.endDate.slice(0,7)===`${year}-${String(month+1).padStart(2,"0")}`?t.endDate:"";
+              if(key){ tasksByDay.set(key,[...(tasksByDay.get(key)??[]),t]); }
+            });
+
+            return (
+              <div className="flex-1 overflow-auto thin-scroll p-4">
+                <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <button type="button" onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))}
+                      className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">← 이전</button>
+                    <h3 className="text-sm font-bold text-slate-800">{year}년 {month+1}월</h3>
+                    <button type="button" onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))}
+                      className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">다음 →</button>
+                  </div>
+                  {/* Weekday labels */}
+                  <div className="grid grid-cols-7 border-b border-slate-100">
+                    {["월","화","수","목","금","토","일"].map(d=>(
+                      <div key={d} className={cx("py-2 text-center text-xs font-bold", d==="일"?"text-red-400":d==="토"?"text-blue-400":"text-slate-500")}>{d}</div>
+                    ))}
+                  </div>
+                  {/* Day cells */}
+                  <div className="grid grid-cols-7">
+                    {cells.map((day,i)=>{
+                      if(!day) return <div key={i} className="min-h-[90px] border-b border-r border-slate-100 bg-slate-50"/>;
+                      const iso=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                      const dayTasks=tasksByDay.get(iso)??[];
+                      const isToday=iso===todayIso();
+                      const colIdx=i%7;
+                      return (
+                        <div key={i} className={cx("min-h-[90px] border-b border-r border-slate-100 p-1.5", isToday?"bg-brand-50":"hover:bg-slate-50")}>
+                          <span className={cx("mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                            isToday?"bg-brand-700 text-white":colIdx===6?"text-red-400":colIdx===5?"text-blue-400":"text-slate-700")}>
+                            {day}
+                          </span>
+                          <div className="space-y-0.5">
+                            {dayTasks.slice(0,3).map(t=>{
+                              const ds=getDisplayStatus(t);
+                              return (
+                                <div key={t.id} className={cx("truncate rounded px-1 py-0.5 text-[10px] font-medium text-white cursor-pointer")}
+                                     style={{backgroundColor:statusMeta[ds].bar}}
+                                     title={t.title}
+                                     onClick={()=>canEdit&&openEditTask(t)}>
+                                  {t.title}
+                                </div>
+                              );
+                            })}
+                            {dayTasks.length>3 && <p className="text-[10px] text-slate-400">+{dayTasks.length-3}개</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ════════════════════════════════════════════════════════════════
+              알림 페이지
+          ════════════════════════════════════════════════════════════════ */}
+          {activePage==="alerts" && (
+            <div className="flex-1 overflow-auto thin-scroll p-4 space-y-4">
+              {(["delayed","warning","todo"] as const).map(dsKey=>{
+                const label={ delayed:"🔴 지연 업무", warning:"🟠 마감 임박 (3일 이내)", todo:"🔵 오늘 마감" }[dsKey];
+                const filtered = dsKey==="todo"
+                  ? tasks.filter(t=>t.endDate===todayIso()&&t.status!=="done")
+                  : tasks.filter(t=>getDisplayStatus(t)===dsKey);
+                if(filtered.length===0) return null;
+                return (
+                  <div key={dsKey} className="rounded-xl border border-slate-200 bg-white shadow-card">
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <h3 className="text-sm font-bold text-slate-800">{label} <span className="ml-1 text-brand-700">({filtered.length})</span></h3>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {filtered.map(t=>{
+                        const ds=getDisplayStatus(t);
+                        const p=projMap.get(t.projectId);
+                        const left=daysLeft(t.endDate);
+                        return (
+                          <div key={t.id} className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50">
+                            <span className={cx("h-2.5 w-2.5 shrink-0 rounded-full", statusMeta[ds].dot)}/>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-800">{t.title}</p>
+                              <p className="text-xs text-slate-400">{p?.name} · {t.department||"-"} · {t.assignee||"미배정"}</p>
+                            </div>
+                            <div className="text-right shrink-0 space-y-0.5">
+                              <Chip className={statusMeta[ds].chip}>{statusMeta[ds].label}</Chip>
+                              <p className={cx("text-xs font-bold", left<0?"text-red-600":left<=3?"text-amber-600":"text-slate-500")}>
+                                {left<0?`${Math.abs(left)}일 초과`:`D-${left}`} · {t.endDate}
+                              </p>
+                            </div>
+                            {canEdit && <IconBtn icon={Edit3} label="수정" onClick={()=>openEditTask(t)}/>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {dashboard.delayed===0&&dashboard.dueSoon===0&&dashboard.todayDue===0 && (
+                <div className="flex flex-1 items-center justify-center py-20">
+                  <div className="text-center">
+                    <Bell className="mx-auto h-12 w-12 text-slate-200"/>
+                    <p className="mt-3 text-sm font-semibold text-slate-400">알림이 없습니다</p>
+                    <p className="text-xs text-slate-300">모든 업무가 정상 진행 중입니다.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
+              보고서 페이지
+          ════════════════════════════════════════════════════════════════ */}
+          {activePage==="reports" && (
+            <div className="flex-1 overflow-auto thin-scroll p-4 space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                {/* Project progress */}
+                <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">프로젝트별 진행률</h3>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {projects.map(p=>{
+                      const pt=tasks.filter(t=>t.projectId===p.id);
+                      const prog=calcProjectProgress(pt);
+                      const doneCnt=pt.filter(t=>t.status==="done").length;
+                      return (
+                        <div key={p.id} className="px-4 py-3">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800">{p.name}</p>
+                              <p className="text-xs text-slate-400">{p.advertiser} · {pt.length}개 업무 · 완료 {doneCnt}개</p>
+                            </div>
+                            <span className="text-lg font-bold text-brand-700">{prog}%</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-slate-200">
+                            <div className="h-2 rounded-full bg-brand-600 transition-all" style={{width:`${prog}%`}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {projects.length===0 && <p className="p-4 text-sm text-slate-400">프로젝트가 없습니다.</p>}
+                  </div>
+                </div>
+
+                {/* Status distribution */}
+                <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">상태별 업무 분포</h3>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {(["todo","in_progress","done","warning","delayed"] as DisplayStatus[]).map(ds=>{
+                      const cnt = ds==="warning"||ds==="delayed"
+                        ? tasks.filter(t=>getDisplayStatus(t)===ds).length
+                        : tasks.filter(t=>t.status===ds).length;
+                      const pct = tasks.length ? Math.round(cnt/tasks.length*100) : 0;
+                      return (
+                        <div key={ds}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-semibold text-slate-700">{statusMeta[ds].label}</span>
+                            <span className="text-slate-500">{cnt}개 ({pct}%)</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-slate-200">
+                            <div className="h-2 rounded-full transition-all" style={{width:`${pct}%`, backgroundColor:statusMeta[ds].bar}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {tasks.length===0 && <p className="text-sm text-slate-400">업무가 없습니다.</p>}
+                  </div>
+                </div>
+
+                {/* Department stats */}
+                <div className="rounded-xl border border-slate-200 bg-white shadow-card lg:col-span-2">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">부서별 업무 분포</h3>
+                  </div>
+                  <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {[...new Set(tasks.map(t=>t.department).filter(Boolean))].map(dept=>{
+                      const dt=tasks.filter(t=>t.department===dept);
+                      const done=dt.filter(t=>t.status==="done").length;
+                      const prog=Math.round(dt.reduce((s,t)=>s+t.progress,0)/(dt.length||1));
+                      return (
+                        <div key={dept} className="rounded-xl border border-slate-200 p-4">
+                          <p className="text-xs font-bold text-slate-500 uppercase">{dept}</p>
+                          <p className="mt-1 text-2xl font-bold text-slate-900">{dt.length}<span className="text-sm font-normal text-slate-400">개</span></p>
+                          <div className="mt-2 h-1.5 w-full rounded-full bg-slate-200">
+                            <div className="h-1.5 rounded-full bg-brand-500" style={{width:`${prog}%`}}/>
+                          </div>
+                          <div className="mt-1 flex justify-between text-[11px] text-slate-400">
+                            <span>완료 {done}개</span><span>{prog}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {[...new Set(tasks.map(t=>t.department).filter(Boolean))].length===0 && (
+                      <p className="text-sm text-slate-400 col-span-4">데이터가 없습니다.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
+              파일 페이지
+          ════════════════════════════════════════════════════════════════ */}
+          {activePage==="files" && (
+            <div className="flex flex-1 items-center justify-center p-4">
+              <div className="text-center">
+                <Folder className="mx-auto h-16 w-16 text-slate-200"/>
+                <h3 className="mt-4 text-base font-bold text-slate-600">첨부파일 기능</h3>
+                <p className="mt-2 text-sm text-slate-400">2차 업데이트에서 Google Drive 또는<br/>Supabase Storage 연동이 제공될 예정입니다.</p>
+              </div>
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
+              설정 페이지
+          ════════════════════════════════════════════════════════════════ */}
+          {activePage==="settings" && (
+            <div className="flex-1 overflow-auto thin-scroll p-4">
+              <div className="mx-auto max-w-2xl space-y-4">
+                {/* My info */}
+                <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">내 계정 정보</h3>
+                  </div>
+                  <div className="p-4 flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-700 text-xl font-bold text-white">
+                      {userEmail.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{userEmail}</p>
+                      <Chip className={{ master:"bg-brand-100 text-brand-700", editor:"bg-emerald-100 text-emerald-700", viewer:"bg-sky-100 text-sky-700", none:"bg-red-100 text-red-700" }[role]}>
+                        {roleLabels[role]}
+                      </Chip>
+                      {isDemoMode && <Chip className="ml-1 bg-amber-100 text-amber-700">데모 DB</Chip>}
+                    </div>
+                    <div className="ml-auto">
+                      <Btn icon={LogOut} tone="danger" small onClick={handleLogout}>로그아웃</Btn>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Role management inline */}
+                {canManage && (
+                  <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                    <div className="px-4 py-3 border-b border-slate-100">
+                      <h3 className="text-sm font-bold text-slate-800">사용자 권한 관리</h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      <form onSubmit={saveRole} className="grid grid-cols-[1fr_140px_auto] gap-2 items-end">
+                        <div><Label>이메일</Label>
+                          <input type="email" value={roleDraft.email} onChange={e=>setRoleDraft(c=>({...c,email:e.target.value}))}
+                            placeholder="name@example.com"
+                            className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"/></div>
+                        <div><Label>권한</Label>
+                          <select value={roleDraft.role} onChange={e=>setRoleDraft(c=>({...c,role:e.target.value as UserRole}))}
+                            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-brand-500">
+                            {(Object.keys(roleLabels) as UserRole[]).map(r=><option key={r} value={r}>{roleLabels[r]}</option>)}
+                          </select></div>
+                        <Btn type="submit" tone="primary" icon={Save}>추가</Btn>
+                      </form>
+                      {formError && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>}
+                      <div className="space-y-2">
+                        {roles.map(r=>(
+                          <div key={r.email} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2.5">
+                            <p className="truncate text-sm font-medium text-slate-800">{r.email}</p>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Chip className={{ master:"bg-brand-100 text-brand-700", editor:"bg-emerald-100 text-emerald-700", viewer:"bg-sky-100 text-sky-700", none:"bg-red-100 text-red-700" }[r.role]}>
+                                {roleLabels[r.role]}
+                              </Chip>
+                              <IconBtn icon={Edit3} label="수정" onClick={()=>setRoleDraft(r)}/>
+                              <IconBtn icon={Trash2} label="삭제" tone="danger" onClick={()=>void deleteRole(r)}/>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* System info */}
+                <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800">시스템 정보</h3>
+                  </div>
+                  <div className="p-4 grid grid-cols-2 gap-3 text-sm">
+                    {[
+                      ["버전",      "v1.0.0 MVP"],
+                      ["DB 모드",   isDemoMode?"데모 (로컬)":"Supabase 연결"],
+                      ["총 프로젝트",`${projects.length}개`],
+                      ["총 업무",   `${tasks.length}개`],
+                    ].map(([k,v])=>(
+                      <div key={k}>
+                        <p className="text-xs text-slate-400">{k}</p>
+                        <p className="font-semibold text-slate-700">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
