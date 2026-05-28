@@ -317,13 +317,14 @@ export default function Home() {
   const [filters,      setFilters]      = useState<Filters>(emptyFilters);
   const [viewMode,     setViewMode]     = useState<ViewMode>("week");
   const [dialog,       setDialog]       = useState<DialogState>(null);
-  const [projDraft,    setProjDraft]    = useState<ProjectDraft>(blankProject());
-  const [taskDraft,    setTaskDraft]    = useState<TaskDraft>(blankTask(""));
+  const [projDraft,    setProjDraft]    = useState<ProjectDraft>(()=>blankProject());
+  const [taskDraft,    setTaskDraft]    = useState<TaskDraft>(()=>blankTask(""));
   const [roleDraft,    setRoleDraft]    = useState<RoleEntry>({ email:"", role:"viewer" });
   const [formError,    setFormError]    = useState("");
   const [sidebarOpen,  setSidebarOpen]  = useState(true);
   const [activePage,   setActivePage]   = useState<NavPage>("gantt");
   const [detailTab,    setDetailTab]    = useState<"info"|"history"|"memo">("info");
+  const [calMonth,     setCalMonth]     = useState<Date>(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1); });
 
   const canEdit       = role==="master"||role==="editor";
   const canManage     = role==="master";
@@ -585,8 +586,23 @@ export default function Home() {
   // Notifications count (delayed + due soon)
   const alertCount = dashboard.delayed + dashboard.dueSoon;
 
-  // Calendar state
-  const [calMonth, setCalMonth] = useState<Date>(()=>{ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1); });
+  // ─── Calendar derived ────────────────────────────────────────────────────
+  const calYear  = calMonth.getFullYear();
+  const calMon   = calMonth.getMonth();
+  const calOffset = (new Date(calYear, calMon, 1).getDay() + 6) % 7;
+  const calDays   = new Date(calYear, calMon + 1, 0).getDate();
+  const calCells: (number|null)[] = [
+    ...Array(calOffset).fill(null),
+    ...Array.from({ length: calDays }, (_, i) => i + 1),
+  ];
+  while (calCells.length % 7 !== 0) calCells.push(null);
+  const calMonPad = String(calMon + 1).padStart(2, "0");
+  const calTaskMap = new Map<string, BoardTask[]>();
+  tasks.forEach(t => {
+    if (t.endDate.slice(0, 7) === `${calYear}-${calMonPad}`) {
+      calTaskMap.set(t.endDate, [...(calTaskMap.get(t.endDate) ?? []), t]);
+    }
+  });
 
   // ─── Render: loading ──────────────────────────────────────────────────────
   if (!ready) {
@@ -1375,73 +1391,61 @@ export default function Home() {
           {/* ════════════════════════════════════════════════════════════════
               캘린더 페이지
           ════════════════════════════════════════════════════════════════ */}
-          {activePage==="calendar" && (()=>{
-            const year=calMonth.getFullYear(), month=calMonth.getMonth();
-            const firstDay=new Date(year,month,1).getDay();
-            const daysInMonth=new Date(year,month+1,0).getDate();
-            const offset=(firstDay+6)%7; // Mon=0
-            const cells: (number|null)[] = [...Array(offset).fill(null), ...Array.from({length:daysInMonth},(_,i)=>i+1)];
-            while(cells.length%7!==0) cells.push(null);
-
-            const tasksByDay = new Map<string,BoardTask[]>();
-            tasks.forEach(t=>{
-              const key=t.endDate.slice(0,7)===`${year}-${String(month+1).padStart(2,"0")}`?t.endDate:"";
-              if(key){ tasksByDay.set(key,[...(tasksByDay.get(key)??[]),t]); }
-            });
-
-            return (
-              <div className="flex-1 overflow-auto thin-scroll p-4">
-                <div className="rounded-xl border border-slate-200 bg-white shadow-card">
-                  {/* Header */}
-                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                    <button type="button" onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))}
-                      className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">← 이전</button>
-                    <h3 className="text-sm font-bold text-slate-800">{year}년 {month+1}월</h3>
-                    <button type="button" onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))}
-                      className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">다음 →</button>
-                  </div>
-                  {/* Weekday labels */}
-                  <div className="grid grid-cols-7 border-b border-slate-100">
-                    {["월","화","수","목","금","토","일"].map(d=>(
-                      <div key={d} className={cx("py-2 text-center text-xs font-bold", d==="일"?"text-red-400":d==="토"?"text-blue-400":"text-slate-500")}>{d}</div>
-                    ))}
-                  </div>
-                  {/* Day cells */}
-                  <div className="grid grid-cols-7">
-                    {cells.map((day,i)=>{
-                      if(!day) return <div key={i} className="min-h-[90px] border-b border-r border-slate-100 bg-slate-50"/>;
-                      const iso=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-                      const dayTasks=tasksByDay.get(iso)??[];
-                      const isToday=iso===todayIso();
-                      const colIdx=i%7;
-                      return (
-                        <div key={i} className={cx("min-h-[90px] border-b border-r border-slate-100 p-1.5", isToday?"bg-brand-50":"hover:bg-slate-50")}>
-                          <span className={cx("mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
-                            isToday?"bg-brand-700 text-white":colIdx===6?"text-red-400":colIdx===5?"text-blue-400":"text-slate-700")}>
-                            {day}
-                          </span>
-                          <div className="space-y-0.5">
-                            {dayTasks.slice(0,3).map(t=>{
-                              const ds=getDisplayStatus(t);
-                              return (
-                                <div key={t.id} className={cx("truncate rounded px-1 py-0.5 text-[10px] font-medium text-white cursor-pointer")}
-                                     style={{backgroundColor:statusMeta[ds].bar}}
-                                     title={t.title}
-                                     onClick={()=>canEdit&&openEditTask(t)}>
-                                  {t.title}
-                                </div>
-                              );
-                            })}
-                            {dayTasks.length>3 && <p className="text-[10px] text-slate-400">+{dayTasks.length-3}개</p>}
-                          </div>
+          {activePage==="calendar" && (
+            <div className="flex-1 overflow-auto thin-scroll p-4">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-card">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                  <button type="button" onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))}
+                    className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">← 이전</button>
+                  <h3 className="text-sm font-bold text-slate-800">{calYear}년 {calMon+1}월</h3>
+                  <button type="button" onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))}
+                    className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">다음 →</button>
+                </div>
+                {/* Weekday labels */}
+                <div className="grid grid-cols-7 border-b border-slate-100">
+                  {["월","화","수","목","금","토","일"].map(d=>(
+                    <div key={d} className={cx("py-2 text-center text-xs font-bold",
+                      d==="일"?"text-red-400":d==="토"?"text-blue-400":"text-slate-500")}>{d}</div>
+                  ))}
+                </div>
+                {/* Day cells */}
+                <div className="grid grid-cols-7">
+                  {calCells.map((day,i)=>{
+                    if (!day) return <div key={i} className="min-h-[90px] border-b border-r border-slate-100 bg-slate-50"/>;
+                    const iso = `${calYear}-${calMonPad}-${String(day).padStart(2,"0")}`;
+                    const dayTasks = calTaskMap.get(iso) ?? [];
+                    const isToday  = iso === todayIso();
+                    const colIdx   = i % 7;
+                    return (
+                      <div key={i} className={cx("min-h-[90px] border-b border-r border-slate-100 p-1.5",
+                        isToday ? "bg-brand-50" : "hover:bg-slate-50")}>
+                        <span className={cx("mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                          isToday?"bg-brand-700 text-white":colIdx===6?"text-red-400":colIdx===5?"text-blue-400":"text-slate-700")}>
+                          {day}
+                        </span>
+                        <div className="space-y-0.5">
+                          {dayTasks.slice(0,3).map(t=>{
+                            const ds=getDisplayStatus(t);
+                            return (
+                              <div key={t.id}
+                                className="truncate rounded px-1 py-0.5 text-[10px] font-medium text-white cursor-pointer"
+                                style={{backgroundColor:statusMeta[ds].bar}}
+                                title={t.title}
+                                onClick={()=>canEdit&&openEditTask(t)}>
+                                {t.title}
+                              </div>
+                            );
+                          })}
+                          {dayTasks.length>3 && <p className="text-[10px] text-slate-400">+{dayTasks.length-3}개</p>}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })()}
+            </div>
+          )}
 
           {/* ════════════════════════════════════════════════════════════════
               알림 페이지
