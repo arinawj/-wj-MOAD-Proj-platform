@@ -132,3 +132,29 @@ create index if not exists idx_projects_advertiser on public.projects(advertiser
 create index if not exists idx_tasks_project_id   on public.tasks(project_id);
 create index if not exists idx_tasks_dates        on public.tasks(start_date, end_date);
 create index if not exists idx_tasks_status       on public.tasks(status);
+
+-- ============================================================
+-- Supabase May 30 2026+ 보안 정책 대응
+-- 새 프로젝트는 public 스키마 테이블에 명시적 GRANT 필요
+-- (RLS가 행 단위 접근을 제어하므로 GRANT는 안전함)
+-- ============================================================
+
+-- 스키마 사용 권한
+grant usage on schema public to anon, authenticated, service_role;
+
+-- 현재 테이블 접근 권한
+grant select, insert, update, delete on public.user_roles to authenticated;
+grant select, insert, update, delete on public.projects   to authenticated;
+grant select, insert, update, delete on public.tasks      to authenticated;
+
+-- 함수 실행 권한
+grant execute on function public.current_user_role() to anon, authenticated;
+grant execute on function public.set_updated_at()    to authenticated;
+
+-- 앞으로 추가되는 테이블에도 자동 적용 (default privileges)
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to authenticated;
+alter default privileges for role postgres in schema public
+  grant execute on routines to authenticated;
+alter default privileges for role postgres in schema public
+  grant usage on sequences to authenticated;
